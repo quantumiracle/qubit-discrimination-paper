@@ -1,5 +1,5 @@
 # qubit-discrimination-paper
-This project is for single qubit discrimination on 171Yb^+ trapped-ion system.  
+This project is for single qubit discrimination on 171Yb+ trapped-ion system.  
 
 ## Methods for this task:
 Traditional methods:
