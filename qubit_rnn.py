@@ -18,13 +18,14 @@ import matplotlib.pyplot as plt
 import argparse
 import math
 import gzip
+import time
 
 # set random seed for comparing the two result calculations
 tf.set_random_seed(1)
 
 # this is data
 #mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-f =gzip.open('./DetectionBinsData_pickle61_clean.gzip','rb')
+f =gzip.open('./DetectionBinsData_pickle615_clean.gzip','rb')
 # hyperparameters
 lr = 0.001
 training_iters = 10000
@@ -148,28 +149,36 @@ with tf.Session() as sess:
         step += 1
 
     #test
-    error_cnt_b=0
-    error_cnt_d=0
-    for i in range (100):
-        data=pickle.load(f)
-        dd=data[:,1:num_bins+1]
-        bb=data[:,102:102+num_bins]
-        batch_xs = dd
-        batch_xs = batch_xs.reshape([batch_size, n_steps, n_inputs])
-        predict_d = sess.run(pred, feed_dict={x: batch_xs})
-        for j in range(100):
-            if predict_d[j][0]<=predict_d[j][1]:
-                error_cnt_d+=1
-        batch_xs = bb
-        batch_xs = batch_xs.reshape([batch_size, n_steps, n_inputs])
-        predict_b = sess.run(pred, feed_dict={x: batch_xs})
-        for j in range(100):
-            if predict_b[j][0]>=predict_b[j][1]:
-                error_cnt_b+=1
-    error_rate_d=(float)(error_cnt_d/10000.0)
-    error_rate_b=(float)(error_cnt_b/10000.0)
-    accuracy_rate=1-(float)(error_cnt_b+error_cnt_d)/20000.0
-    print('error_dark sate:',error_cnt_d,error_rate_d)
-    print('error_bright sate:',error_cnt_b,error_rate_b)
-    print('total accuracy rate:',accuracy_rate)    
+    start = time.time()
+    acc_set=[]
+    for p in range(10):
+        error_cnt_b=0
+        error_cnt_d=0
+        for i in range (100):
+            data=pickle.load(f)
+            dd=data[:,1:num_bins+1]
+            bb=data[:,102:102+num_bins]
+            batch_xs = dd
+            batch_xs = batch_xs.reshape([batch_size, n_steps, n_inputs])
+            predict_d = sess.run(pred, feed_dict={x: batch_xs})
+            for j in range(100):
+                if predict_d[j][0]<=predict_d[j][1]:
+                    error_cnt_d+=1
+            batch_xs = bb
+            batch_xs = batch_xs.reshape([batch_size, n_steps, n_inputs])
+            predict_b = sess.run(pred, feed_dict={x: batch_xs})
+            for j in range(100):
+                if predict_b[j][0]>=predict_b[j][1]:
+                    error_cnt_b+=1
+        error_rate_d=(float)(error_cnt_d/10000.0)
+        error_rate_b=(float)(error_cnt_b/10000.0)
+        accuracy_rate=1-(float)(error_cnt_b+error_cnt_d)/20000.0
+        #print('error_dark sate:',error_cnt_d,error_rate_d)
+        #print('error_bright sate:',error_cnt_b,error_rate_b)
+        #print('total accuracy rate:',accuracy_rate) 
+        acc_set.append(accuracy_rate)    
+    print( float(np.mean(acc_set)),float(np.mean(acc_set)-np.min(acc_set)),float(np.max(acc_set)-np.mean(acc_set)))
+    f.close()
 
+    end = time.time()
+    print ('Time used: ',end-start)

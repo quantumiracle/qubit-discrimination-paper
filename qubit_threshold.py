@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import argparse
 import math
 import gzip
+import time
 save_file='./modelthreshold.ckpt'
 
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller.')
@@ -98,7 +99,7 @@ sess.run(init)
 
 
 fig = plt.figure()
-f =gzip.open('./DetectionBinsData_pickle61_clean.gzip','rb')  #49664*100 times measurement
+f =gzip.open('./DetectionBinsData_pickle615_clean.gzip','rb')  #49664*100 times measurement
 if args.train:
     te_dd=pickle.load(f)[:,1:1+num_bins]
     te_bb=pickle.load(f)[:,102:102+num_bins]
@@ -158,37 +159,62 @@ if args.test:
     predict_b = sess.run(prediction, feed_dict={xs: bb, keep_prob: 1})
     print(predict_b)
     '''
+    start = time.time()
+    num_set=[]
+    y_set=[]
+    y_err_set=[]
+    l_err_set=[]
+    u_err_set=[]
+    for m in range(10,11):
+        acc_set=[]
+        f =gzip.open('./DetectionBinsData_pickle615_clean.gzip','rb')
+        num_bins=10*m
+        num_set.append(num_bins)
+        for p in range(10):
+            #show the error/accuracy rate
+            error_cnt_b=0
+            error_cnt_d=0
+            #saver.restore(sess, save_file)
+            test_samples=10   #test_samples * 100 *100 = test num
+            threshold = 2  # 1:99.16%  2:98.5% wrong!    
+            #correct is: 
+            #d>=  1: 95.9%  2: 98.36%  3: 96.6
+            #b<=  1: 98.36%  2: 96.7%  3: 92.9%
+            for k in range (test_samples):
+                for i in range (100):
+                    data=pickle.load(f)
+                    dd=data[:,1:1+num_bins]
+                    bb=data[:,102:102+num_bins]
+                    #predict_d = sess.run(prediction, feed_dict={xs: dd, keep_prob: 1})
+                    d_cnt=np.sum(dd,axis=1)
+                    #print(d_cnt)
+                    b_cnt=np.sum(bb,axis=1)
+                    #print(b_cnt)
+                    for j in range(100):
+                        if d_cnt[j] >= threshold:
+                            error_cnt_d+=1
+                    #predict_b = sess.run(prediction, feed_dict={xs: bb, keep_prob: 1})
+                    for j in range(100):
+                        if b_cnt[j] < threshold:
+                            error_cnt_b+=1
+            error_rate_d=(float)(error_cnt_d/(test_samples*100*100.0))
+            error_rate_b=(float)(error_cnt_b/(test_samples*100*100.0))
+            accuracy_rate=1-(float)(error_cnt_b+error_cnt_d)/(test_samples*2*100*100.0)
+            #print('error_dark sate:',error_cnt_d,error_rate_d)
+            #print('error_bright sate:',error_cnt_b,error_rate_b)
+            #print('total accuracy rate:',accuracy_rate)
+            acc_set.append(accuracy_rate)
 
-    #show the error/accuracy rate
-    error_cnt_b=0
-    error_cnt_d=0
-    #saver.restore(sess, save_file)
-    test_samples=30   #test_samples * 100 *100 = test num
-    threshold = 2  # 1:99.16%  2:98.5% wrong!    
-    #correct is: 
-    #d>=  1: 95.9%  2: 98.36%  3: 96.6
-    #b<=  1: 98.36%  2: 96.7%  3: 92.9%
-    for k in range (test_samples):
-        for i in range (100):
-            data=pickle.load(f)
-            dd=data[:,1:1+num_bins]
-            bb=data[:,102:102+num_bins]
-            #predict_d = sess.run(prediction, feed_dict={xs: dd, keep_prob: 1})
-            d_cnt=np.sum(dd,axis=1)
-            print(d_cnt)
-            b_cnt=np.sum(bb,axis=1)
-            print(b_cnt)
-            for j in range(100):
-                if d_cnt[j] >= threshold:
-                    error_cnt_d+=1
-            #predict_b = sess.run(prediction, feed_dict={xs: bb, keep_prob: 1})
-            for j in range(100):
-                if b_cnt[j] < threshold:
-                    error_cnt_b+=1
-    error_rate_d=(float)(error_cnt_d/(test_samples*100*100.0))
-    error_rate_b=(float)(error_cnt_b/(test_samples*100*100.0))
-    accuracy_rate=1-(float)(error_cnt_b+error_cnt_d)/(test_samples*2*100*100.0)
-    print('error_dark sate:',error_cnt_d,error_rate_d)
-    print('error_bright sate:',error_cnt_b,error_rate_b)
-    print('total accuracy rate:',accuracy_rate)    
-f.close()
+        #print(acc_set)
+        print(np.mean(acc_set),np.mean(acc_set)-np.min(acc_set),np.max(acc_set)-np.mean(acc_set))    
+        y_set.append(float(np.mean(acc_set)))
+        l_err_set.append(float(np.mean(acc_set)-np.min(acc_set)))
+        u_err_set.append(float(np.max(acc_set)-np.mean(acc_set)))
+        f.close()
+    y_err_set.append(l_err_set)
+    y_err_set.append(u_err_set)
+    print(num_set)
+    print((y_set))
+    print((y_err_set))
+    end = time.time()
+    print ('Time used: ',end-start)

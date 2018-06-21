@@ -11,13 +11,14 @@ import matplotlib.pyplot as plt
 import argparse
 import math
 import gzip
+import time
 save_file='./modelcnn.ckpt'
 
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller.')
 parser.add_argument('--train', dest='train', action='store_true', default=False)
 parser.add_argument('--test', dest='test', action='store_true', default=True)
 
-
+start = time.time()
 args = parser.parse_args()
 #print(tf.reduce_sum([[1,2],[3,4]],reduction_indices=[0,1]))
 
@@ -63,13 +64,13 @@ def leakyrelu(x, alpha=0.3, max_value=None):  #alpha need set
     return x
 
 
-num_bins=64
+num_bins=100
 xs = tf.placeholder(tf.float32, [None, num_bins])   # 28x28
 ys = tf.placeholder(tf.float32, [None, 2])  #num_p add 1 om
 keep_prob = tf.placeholder(tf.float32)
 lr = tf.placeholder(tf.float32)
 
-W_conv1 = weight_variable([10,1, 1,16]) # patch 5x1, in size 1, out size 32; [a,b,c,d]: a,b,c equals to length, width, height(usually caused by num of convolution cores or inputs with height like RGB)
+W_conv1 = weight_variable([5,1, 1,16]) # patch 5x1, in size 1, out size 32; [a,b,c,d]: a,b,c equals to length, width, height(usually caused by num of convolution cores or inputs with height like RGB)
 b_conv1 = bias_variable([16])
 W_conv2 = weight_variable([5,1, 16, 32]) # patch 5x1, in size 32, out size 64
 b_conv2 = bias_variable([32])
@@ -105,7 +106,7 @@ sess.run(init)
 
 
 fig = plt.figure()
-f =gzip.open('./DetectionBinsData_pickle61_clean.gzip','rb')  #49664*100 times measurement
+f =gzip.open('./DetectionBinsData_pickle615_clean.gzip','rb')  #49664*100 times measurement
 if args.train:
     te_dd=pickle.load(f)[:,1:num_bins+1]
     te_bb=pickle.load(f)[:,102:102+num_bins]
@@ -163,26 +164,38 @@ if args.test:
     print(predict_b)
     '''
 
-    #show the error/accuracy rate
-    error_cnt_b=0
-    error_cnt_d=0
-    saver.restore(sess, save_file)
-    for i in range (100):
-        data=pickle.load(f)
-        dd=data[:,1:num_bins+1]
-        bb=data[:,102:102+num_bins]
-        predict_d = sess.run(prediction, feed_dict={xs: dd, keep_prob: 1})
-        for j in range(100):
-            if predict_d[j][0]<=predict_d[j][1]:
-                error_cnt_d+=1
-        predict_b = sess.run(prediction, feed_dict={xs: bb, keep_prob: 1})
-        for j in range(100):
-            if predict_b[j][0]>=predict_b[j][1]:
-                error_cnt_b+=1
-    error_rate_d=(float)(error_cnt_d/10000.0)
-    error_rate_b=(float)(error_cnt_b/10000.0)
-    accuracy_rate=1-(float)(error_cnt_b+error_cnt_d)/20000.0
-    print('error_dark sate:',error_cnt_d,error_rate_d)
-    print('error_bright sate:',error_cnt_b,error_rate_b)
-    print('total accuracy rate:',accuracy_rate)    
-f.close()
+
+    acc_set=[]
+    f =gzip.open('./DetectionBinsData_pickle615_clean.gzip','rb')
+
+
+    for p in range(10):
+        #show the error/accuracy rate
+        error_cnt_b=0
+        error_cnt_d=0
+        saver.restore(sess, save_file)
+        for i in range (100):
+            data=pickle.load(f)
+            dd=data[:,1:num_bins+1]
+            bb=data[:,102:102+num_bins]
+            predict_d = sess.run(prediction, feed_dict={xs: dd, keep_prob: 1})
+            for j in range(100):
+                if predict_d[j][0]<=predict_d[j][1]:
+                    error_cnt_d+=1
+            predict_b = sess.run(prediction, feed_dict={xs: bb, keep_prob: 1})
+            for j in range(100):
+                if predict_b[j][0]>=predict_b[j][1]:
+                    error_cnt_b+=1
+        error_rate_d=(float)(error_cnt_d/10000.0)
+        error_rate_b=(float)(error_cnt_b/10000.0)
+        accuracy_rate=1-(float)(error_cnt_b+error_cnt_d)/20000.0
+        #print('error_dark sate:',error_cnt_d,error_rate_d)
+        #print('error_bright sate:',error_cnt_b,error_rate_b)
+        #print('total accuracy rate:',accuracy_rate)
+        acc_set.append(accuracy_rate)
+    print(num_bins, float(np.mean(acc_set)),float(np.mean(acc_set)-np.min(acc_set)),float(np.max(acc_set)-np.mean(acc_set)))    
+    f.close()
+
+
+end = time.time()
+print ('Time used: ',end-start)
